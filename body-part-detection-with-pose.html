@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PoseNet: Webcam and Image Upload</title>
+  <style>
+    body {
+      margin: 0;
+      text-align: center;
+      font-family: sans-serif;
+      background: #111;
+      color: white;
+    }
+
+    canvas {
+      display: block;
+      margin: 20px auto;
+    }
+
+    #upload {
+      margin: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h2>PoseNet: Webcam or Upload Image</h2>
+  <input type="file" id="upload" accept="image/*" />
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.4.0/lib/p5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ml5@0.12.2/dist/ml5.min.js"></script>
+
+  <script>
+    let video;
+    let poseNet;
+    let poses = [];
+    let uploadedImg;
+    let isImageMode = false;
+    let scaleX = 1;
+    let scaleY = 1;
+
+    function setup() {
+      createCanvas(640, 480);
+      video = createCapture(VIDEO);
+      video.size(width, height);
+      video.hide();
+
+      // PoseNet for webcam
+      poseNet = ml5.poseNet(video, modelReady);
+      poseNet.on('pose', function(results) {
+        if (!isImageMode) {
+          poses = results;
+        }
+      });
+
+      document.getElementById('upload').addEventListener('change', handleImageUpload);
+    }
+
+    function modelReady() {
+      console.log("PoseNet model loaded");
+    }
+
+    function handleImageUpload(event) {
+      let file = event.target.files[0];
+      if (file) {
+        let img = createImg(URL.createObjectURL(file), () => {
+          img.hide();
+          uploadedImg = img;
+          isImageMode = true;
+
+          // Resize uploaded image to canvas size (640x480)
+          scaleX = width / img.width;
+          scaleY = height / img.height;
+
+          // PoseNet instance for static image
+          ml5.poseNet().then(detector => {
+            detector.singlePose(img.elt).then(result => {
+              if (result && result.pose) {
+                poses = [{
+                  pose: result.pose,
+                  skeleton: result.skeleton || []
+                }];
+                redraw();
+              } else {
+                poses = [];
+              }
+            });
+          });
+        });
+      }
+    }
+
+    function draw() {
+      background(0);
+
+      if (isImageMode && uploadedImg) {
+        // Resize and draw image to canvas
+        image(uploadedImg, 0, 0, width, height);
+      } else {
+        image(video, 0, 0, width, height);
+      }
+
+      drawKeypoints();
+      drawSkeleton();
+
+      if (isImageMode) {
+        noLoop(); // Draw only once in image mode
+      }
+    }
+
+    function drawKeypoints() {
+      for (let i = 0; i < poses.length; i++) {
+        let pose = poses[i].pose;
+        if (!pose || !pose.keypoints) continue;
+
+        for (let j = 0; j < pose.keypoints.length; j++) {
+          let keypoint = pose.keypoints[j];
+          if (keypoint.score > 0.2) {
+            const x = isImageMode ? keypoint.position.x * scaleX : keypoint.position.x;
+            const y = isImageMode ? keypoint.position.y * scaleY : keypoint.position.y;
+
+            fill(255, 0, 0);
+            noStroke();
+            ellipse(x, y, 10, 10);
+
+            fill(255);
+            textSize(12);
+            text(keypoint.part, x + 5, y - 5);
+          }
+        }
+      }
+    }
+
+    function drawSkeleton() {
+      for (let i = 0; i < poses.length; i++) {
+        let skeleton = poses[i].skeleton;
+        if (!skeleton) continue;
+
+        for (let j = 0; j < skeleton.length; j++) {
+          let partA = skeleton[j][0];
+          let partB = skeleton[j][1];
+
+          const x1 = isImageMode ? partA.position.x * scaleX : partA.position.x;
+          const y1 = isImageMode ? partA.position.y * scaleY : partA.position.y;
+          const x2 = isImageMode ? partB.position.x * scaleX : partB.position.x;
+          const y2 = isImageMode ? partB.position.y * scaleY : partB.position.y;
+
+          stroke(255);
+          line(x1, y1, x2, y2);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
