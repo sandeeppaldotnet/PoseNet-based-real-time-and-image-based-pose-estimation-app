@@ -2,7 +2,7 @@
 
 A browser-based pose estimation tool built with [ml5.js](https://ml5js.org/) and [p5.js](https://p5js.org/). It uses the PoseNet model to detect and visualize human body keypoints and skeletons in real time via webcam, or from any uploaded image.
 
-![PoseNet Demo Screenshot](posenet-demo.png)
+![PoseNet Demo Screenshot](body-part-detection.png)
 
 ## 🚀 Features
 
